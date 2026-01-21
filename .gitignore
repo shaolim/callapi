@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Ruby
+*.gem
+*.rbc
+.bundle
+vendor/bundle
+
+# Bundler
+Gemfile.lock
+
+# Ruby LSP
+.ruby-lsp/
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
