@@ -2,6 +2,7 @@ require 'webrick'
 require 'json'
 require 'redis'
 require 'logger'
+require_relative 'redis_cache'
 require_relative 'pricing_service'
 
 class Application
@@ -13,8 +14,9 @@ class Application
     @logger.formatter = proc { |severity, datetime, _progname, msg| "#{datetime} [#{severity}] #{msg}\n" }
 
     @server = WEBrick::HTTPServer.new(Port: PORT, Logger: WEBrick::Log.new($stdout, WEBrick::Log::INFO))
-    @redis = Redis.new(url: ENV.fetch('REDIS_URL'))
-    @pricing_service = PricingService.new(token: ENV.fetch('API_TOKEN'), redis: @redis, logger: @logger)
+    redis = Redis.new(url: ENV.fetch('REDIS_URL'))
+    cache = RedisCache.new(redis: redis, logger: @logger)
+    @pricing_service = PricingService.new(token: ENV.fetch('API_TOKEN'), cache: cache, logger: @logger)
 
     setup_routes
     setup_signals

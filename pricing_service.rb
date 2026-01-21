@@ -3,11 +3,12 @@ require 'json'
 require 'uri'
 require 'digest'
 require 'logger'
+require_relative 'redis_cache'
 
 class PricingService
   DEFAULT_API_URL = ENV.fetch('RATE_API_URL', 'http://rate-api:8080/pricing').freeze
-  CACHE_TTL = 300 # 5 minutes in seconds
   CACHE_PREFIX = 'pricing:'.freeze
+  CACHE_TTL = 300 # 5 minutes
 
   class Error < StandardError; end
 
@@ -20,10 +21,10 @@ class PricingService
     end
   end
 
-  def initialize(token:, redis:, logger: nil, api_url: DEFAULT_API_URL)
+  def initialize(token:, cache:, logger: nil, api_url: DEFAULT_API_URL)
     @uri = URI(api_url)
     @token = token
-    @redis = redis
+    @cache = cache
     @logger = logger || Logger.new(IO::NULL)
   end
 
@@ -32,20 +33,7 @@ class PricingService
 
     cache_key = build_cache_key(attributes)
 
-    cached = @redis.get(cache_key)
-    if cached
-      @logger.info { "Cache hit: #{cache_key}" }
-      return JSON.parse(cached)
-    end
-
-    @logger.info { "Cache miss: #{cache_key}" }
-    response = make_request(attributes)
-    data = JSON.parse(response.body)
-
-    @redis.set(cache_key, data.to_json, ex: CACHE_TTL)
-    @logger.info { "Cached response for #{CACHE_TTL}s" }
-
-    data
+    @cache.fetch(cache_key) { fetch_from_api(attributes) }
   end
 
   private
@@ -58,7 +46,7 @@ class PricingService
     "#{CACHE_PREFIX}#{hash}"
   end
 
-  def make_request(attributes)
+  def fetch_from_api(attributes)
     request = build_request(attributes)
 
     logger.info { "API request: POST #{uri}" }
@@ -73,10 +61,10 @@ class PricingService
 
     unless response.is_a?(Net::HTTPSuccess)
       logger.error { "API error: #{response.code} - #{response.body}" }
-      raise ApiError.new(response.code, response.body)
+      raise ApiError.new(response.code, response.body) # rubocop:disable Style/RaiseArgs
     end
 
-    response
+    JSON.parse(response.body)
   end
 
   def build_request(attributes)
