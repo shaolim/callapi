@@ -2,6 +2,7 @@
 
 source 'https://rubygems.org'
 
+gem 'async'
 gem 'redis'
 gem 'webrick'
 
