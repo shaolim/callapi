@@ -35,14 +35,14 @@ Request → Check Cache → [Miss] → Try Acquire Lock
 
 **Implementation Details:**
 
-| Aspect | Detail |
-| -------- | -------- |
-| Lock mechanism | `SETNX` with 10s TTL |
-| Waiting strategy | Polling every 100ms |
-| Max wait time | 5 seconds (50 retries × 100ms) |
-| Lock ownership | Not tracked (unsafe release) |
-| Retry on API failure | None |
-| Fallback | None |
+| Aspect               | Detail                         |
+| -------------------- | ------------------------------ |
+| Lock mechanism       | `SETNX` with 10s TTL           |
+| Waiting strategy     | Polling every 100ms            |
+| Max wait time        | 5 seconds (50 retries × 100ms) |
+| Lock ownership       | Not tracked (unsafe release)   |
+| Retry on API failure | None                           |
+| Fallback             | None                           |
 
 **Code Location:** `redis_cache.rb`
 
@@ -66,14 +66,14 @@ Request → Check Cache → [Miss] → Try Acquire Lock (with auto-extend)
 
 **Implementation Details:**
 
-| Aspect | Detail |
-| -------- | -------- |
-| Lock mechanism | `SETNX` with 60s TTL + auto-extend every 2s |
-| Waiting strategy | `BRPOP` (Redis blocking pop) |
-| Max wait time | 55 seconds |
-| Lock ownership | UUID tracked, Lua script for safe release |
-| Retry on API failure | None |
-| Fallback | None |
+| Aspect               | Detail                                      |
+| -------------------- | ------------------------------------------- |
+| Lock mechanism       | `SETNX` with 60s TTL + auto-extend every 2s |
+| Waiting strategy     | `BRPOP` (Redis blocking pop)                |
+| Max wait time        | 55 seconds                                  |
+| Lock ownership       | UUID tracked, Lua script for safe release   |
+| Retry on API failure | None                                        |
+| Fallback             | None                                        |
 
 **Key Innovation:**
 
@@ -113,15 +113,15 @@ Request → Check Cache → [Hit] → Return
 
 **Implementation Details:**
 
-| Aspect | Detail |
-| -------- | -------- |
-| Lock mechanism | `SETNX` with 60s TTL + auto-extend every 2s |
-| Waiting strategy | `BRPOP` with exponential backoff retry |
-| Max wait time | 15 seconds (user-friendly) |
-| Lock ownership | UUID tracked, Lua script for safe release |
-| Retry on API failure | Via circuit breaker half-open state |
-| Fallback | Stale cache (15 min TTL) or empty array |
-| Circuit breaker | Opens after 5 failures, 60s timeout |
+| Aspect               | Detail                                      |
+| -------------------- | ------------------------------------------- |
+| Lock mechanism       | `SETNX` with 60s TTL + auto-extend every 2s |
+| Waiting strategy     | `BRPOP` with exponential backoff retry      |
+| Max wait time        | 15 seconds (user-friendly)                  |
+| Lock ownership       | UUID tracked, Lua script for safe release   |
+| Retry on API failure | Via circuit breaker half-open state         |
+| Fallback             | Stale cache (15 min TTL) or empty array     |
+| Circuit breaker      | Opens after 5 failures, 60s timeout         |
 
 **Key Innovations:**
 
@@ -137,17 +137,17 @@ Request → Check Cache → [Hit] → Return
 
 ## Comparison Matrix
 
-| Feature | V1 | V2 | V3 |
-| --------- | ---- | ---- | ----- |
-| **Lock Safety** | Unsafe (no ownership check) | Safe (Lua script) | Safe (Lua script) |
-| **Wait Efficiency** | Poor (polling) | Good (BRPOP) | Good (BRPOP) |
-| **Long Operations** | Limited (10s lock) | Supported (auto-extend) | Supported (auto-extend) |
-| **Thundering Herd** | Partial (on timeout) | Prevented | Prevented |
-| **API Failure Handling** | None | None | Circuit breaker |
-| **Graceful Degradation** | None | None | Stale cache fallback |
-| **User Experience** | Poor (5s wait, then fail) | Moderate (55s wait) | Good (15s wait, fallback) |
-| **Complexity** | Low | Medium | High |
-| **Resource Usage** | High (polling) | Low (blocking) | Low (blocking) |
+| Feature                  | V1                          | V2                      | V3                        |
+| ------------------------ | --------------------------- | ----------------------- | ------------------------- |
+| **Lock Safety**          | Unsafe (no ownership check) | Safe (Lua script)       | Safe (Lua script)         |
+| **Wait Efficiency**      | Poor (polling)              | Good (BRPOP)            | Good (BRPOP)              |
+| **Long Operations**      | Limited (10s lock)          | Supported (auto-extend) | Supported (auto-extend)   |
+| **Thundering Herd**      | Partial (on timeout)        | Prevented               | Prevented                 |
+| **API Failure Handling** | None                        | None                    | Circuit breaker           |
+| **Graceful Degradation** | None                        | None                    | Stale cache fallback      |
+| **User Experience**      | Poor (5s wait, then fail)   | Moderate (55s wait)     | Good (15s wait, fallback) |
+| **Complexity**           | Low                         | Medium                  | High                      |
+| **Resource Usage**       | High (polling)              | Low (blocking)          | Low (blocking)            |
 
 ---
 
@@ -201,11 +201,11 @@ Request → Check Cache → [Hit] → Return
 
 **When to Use Each Version:**
 
-| Version | Use Case |
-| --------- | ---------- |
-| V1 | Simple applications, fast APIs (<1s), low concurrency |
-| V2 | Medium complexity, reliable APIs, acceptable long waits |
-| V3 | Production systems, unreliable APIs, user-facing applications |
+| Version | Use Case                                                      |
+| ------- | ------------------------------------------------------------- |
+| V1      | Simple applications, fast APIs (<1s), low concurrency         |
+| V2      | Medium complexity, reliable APIs, acceptable long waits       |
+| V3      | Production systems, unreliable APIs, user-facing applications |
 
 ---
 
