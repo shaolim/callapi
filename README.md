@@ -25,11 +25,11 @@ The service will be available at `http://localhost:3000`.
 
 ## API Endpoints
 
-| Endpoint | Description |
-| -------- | ----------- |
-| `GET /health` | Health check |
-| `POST /pricing` | V1: Simple mutex lock |
-| `POST /pricing/v2` | V2: Leader-follower pattern |
+| Endpoint           | Description                    |
+| ------------------ | ------------------------------ |
+| `GET /health`      | Health check                   |
+| `POST /pricing`    | V1: Simple mutex lock          |
+| `POST /pricing/v2` | V2: Leader-follower pattern    |
 | `POST /pricing/v3` | V3: Circuit breaker + fallback |
 
 ### Example Request
@@ -59,15 +59,15 @@ curl -X POST http://localhost:3000/pricing/v3 \
 
 ## API Versions Comparison
 
-| Feature | V1 | V2 | V3 |
-| ------- | -- | -- | -- |
-| Caching | Yes | Yes | Yes |
-| Prevents duplicate API calls | Yes | Yes | Yes |
-| Efficient waiting (no polling) | No | Yes | Yes |
-| Handles long API responses | No | Yes | Yes |
-| Circuit breaker | No | No | Yes |
-| Stale cache fallback | No | No | Yes |
-| Retry with backoff | No | No | Yes |
+| Feature                        | V1  | V2  | V3  |
+| ------------------------------ | --- | --- | --- |
+| Caching                        | Yes | Yes | Yes |
+| Prevents duplicate API calls   | Yes | Yes | Yes |
+| Efficient waiting (no polling) | No  | Yes | Yes |
+| Handles long API responses     | No  | Yes | Yes |
+| Circuit breaker                | No  | No  | Yes |
+| Stale cache fallback           | No  | No  | Yes |
+| Retry with backoff             | No  | No  | Yes |
 
 **Recommendation:** Use `/pricing/v3` for production deployments.
 
@@ -116,7 +116,7 @@ Acquire Lock
 - Redis 7+
 - Docker (recommended)
 
-### With Docker Compose (Recommended)
+### With Docker Compose
 
 ```bash
 # Clone and navigate to project
@@ -137,14 +137,14 @@ docker compose up --build --watch
 bundle install
 ```
 
-1. Start Redis and rate-api:
+2. Start Redis and rate-api:
 
 ```bash
 docker run -d -p 6379:6379 redis:7-alpine
 docker run -d -p 8080:8080 tripladev/rate-api:latest
 ```
 
-1. Create `.env` file:
+3. Create `.env` file:
 
 ```bash
 API_TOKEN=your_token_here
@@ -152,7 +152,7 @@ REDIS_URL=redis://localhost:6379
 RATE_API_URL=http://localhost:8080/pricing
 ```
 
-1. Run the server:
+4. Run the server:
 
 ```bash
 bundle exec ruby -rdotenv/load main.rb
@@ -160,12 +160,12 @@ bundle exec ruby -rdotenv/load main.rb
 
 ## Configuration
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `API_TOKEN` | Token for rate-api authentication | (required) |
-| `REDIS_URL` | Redis connection URL | (required) |
-| `RATE_API_URL` | Rate API endpoint | `http://rate-api:8080/pricing` |
-| `LOG_LEVEL` | Log level (DEBUG, INFO, WARN, ERROR) | `INFO` |
+| Variable       | Description                          | Default                        |
+| -------------- | ------------------------------------ | ------------------------------ |
+| `API_TOKEN`    | Token for rate-api authentication    | (required)                     |
+| `REDIS_URL`    | Redis connection URL                 | (required)                     |
+| `RATE_API_URL` | Rate API endpoint                    | `http://rate-api:8080/pricing` |
+| `LOG_LEVEL`    | Log level (DEBUG, INFO, WARN, ERROR) | `INFO`                         |
 
 ## Project Structure
 
