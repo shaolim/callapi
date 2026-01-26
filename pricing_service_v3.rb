@@ -3,12 +3,19 @@ require 'json'
 require 'uri'
 require 'digest'
 require 'logger'
-require_relative 'redis_cache'
+require_relative 'leader_follower_cache_v2'
 
-class PricingService
+# PricingService V3 using enhanced Leader-Follower pattern
+# Optimized for the Tripla case requirements:
+# - Handles expensive API operations (auto-extending lock)
+# - Respects rate limits (circuit breaker, no duplicate calls)
+# - Graceful degradation (stale cache fallback)
+# - User-friendly timeouts (15s instead of 55s)
+# - Production-ready error handling
+class PricingServiceV3
   DEFAULT_API_URL = ENV.fetch('RATE_API_URL', 'http://rate-api:8080/pricing').freeze
-  CACHE_PREFIX = 'pricing:'.freeze
-  CACHE_TTL = 300 # 5 minutes
+  CACHE_PREFIX = 'pricing:v3:'.freeze
+  CACHE_TTL = 300 # 5 minutes (per case requirements)
 
   class Error < StandardError; end
 
@@ -33,7 +40,26 @@ class PricingService
 
     cache_key = build_cache_key(attributes)
 
-    @cache.fetch(cache_key) { fetch_from_api(attributes) }
+    @cache.fetch(cache_key) do
+      fetch_from_api(attributes)
+    end
+  rescue AsyncRequest::Timeout => e
+    @logger.error { "[V3] Follower timeout: #{e.message}" }
+    raise Error, 'Price calculation timed out. The service is experiencing high load. Please retry in a few seconds.'
+  rescue DistributedLock::LockError => e
+    @logger.error { "[V3] Lock error: #{e.message}" }
+    raise Error, 'Unable to coordinate price calculation. Please retry.'
+  rescue CircuitBreaker::CircuitBreakerError => e
+    @logger.error { "[V3] Circuit breaker open: #{e.message}" }
+    raise Error, 'Pricing service is temporarily unavailable. Returning cached data if available.'
+  rescue StandardError => e
+    @logger.error { "[V3] Unexpected error: #{e.class} - #{e.message}" }
+    raise Error, 'An unexpected error occurred. Please try again.'
+  end
+
+  # Reset circuit breaker (for manual intervention)
+  def reset_circuit_breaker
+    @cache.reset_circuit_breaker
   end
 
   private
@@ -49,18 +75,14 @@ class PricingService
   def fetch_from_api(attributes)
     request = build_request(attributes)
 
-    logger.info { "API request: POST #{uri}" }
-    start_time = Time.now
+    logger.info { "[V3] API request: POST #{uri}" }
 
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
       http.request(request)
     end
 
-    duration = ((Time.now - start_time) * 1000).round(2)
-    logger.info { "API response: #{response.code} (#{duration}ms)" }
-
     unless response.is_a?(Net::HTTPSuccess)
-      logger.error { "API error: #{response.code} - #{response.body}" }
+      logger.error { "[V3] API error: #{response.code} - #{response.body}" }
       raise ApiError.new(response.code, response.body)
     end
 

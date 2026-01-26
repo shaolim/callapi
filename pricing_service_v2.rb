@@ -3,11 +3,15 @@ require 'json'
 require 'uri'
 require 'digest'
 require 'logger'
-require_relative 'redis_cache'
+require_relative 'leader_follower_cache'
 
-class PricingService
+# PricingService V2 using Leader-Follower pattern
+# Comparison with V1:
+# - V1 (RedisCache): Mutex lock + polling, max 10s operations
+# - V2 (LeaderFollowerCache): Leader election + BRPOP, supports long operations
+class PricingServiceV2
   DEFAULT_API_URL = ENV.fetch('RATE_API_URL', 'http://rate-api:8080/pricing').freeze
-  CACHE_PREFIX = 'pricing:'.freeze
+  CACHE_PREFIX = 'pricing:v2:'.freeze
   CACHE_TTL = 300 # 5 minutes
 
   class Error < StandardError; end
@@ -33,7 +37,18 @@ class PricingService
 
     cache_key = build_cache_key(attributes)
 
-    @cache.fetch(cache_key) { fetch_from_api(attributes) }
+    @logger.info { "[V2] Fetching pricing for key: #{cache_key}" }
+
+    @cache.fetch(cache_key) do
+      @logger.info { '[V2] Leader executing API request' }
+      fetch_from_api(attributes)
+    end
+  rescue AsyncRequest::Timeout => e
+    @logger.error { "[V2] Follower timeout: #{e.message}" }
+    raise Error, 'Price calculation timed out. Please retry.'
+  rescue DistributedLock::LockError => e
+    @logger.error { "[V2] Lock error: #{e.message}" }
+    raise Error, 'Unable to coordinate price calculation. Please retry.'
   end
 
   private
@@ -49,7 +64,7 @@ class PricingService
   def fetch_from_api(attributes)
     request = build_request(attributes)
 
-    logger.info { "API request: POST #{uri}" }
+    logger.info { "[V2] API request: POST #{uri}" }
     start_time = Time.now
 
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
@@ -57,10 +72,10 @@ class PricingService
     end
 
     duration = ((Time.now - start_time) * 1000).round(2)
-    logger.info { "API response: #{response.code} (#{duration}ms)" }
+    logger.info { "[V2] API response: #{response.code} (#{duration}ms)" }
 
     unless response.is_a?(Net::HTTPSuccess)
-      logger.error { "API error: #{response.code} - #{response.body}" }
+      logger.error { "[V2] API error: #{response.code} - #{response.body}" }
       raise ApiError.new(response.code, response.body)
     end
 
