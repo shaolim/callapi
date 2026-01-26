@@ -28,11 +28,7 @@ class Application
     cache_v2 = LeaderFollowerCache.new(redis: redis, logger: @logger)
     @pricing_service_v2 = PricingServiceV2.new(token: ENV.fetch('API_TOKEN'), cache: cache_v2, logger: @logger)
 
-    # V3: Enhanced leader-follower (RECOMMENDED for case requirements)
-    #     - Circuit breaker pattern
-    #     - Stale cache fallback
-    #     - Retry with exponential backoff
-    #     - User-friendly timeouts (15s)
+    # V3: leader-follower with circuit breaker
     cache_v3 = LeaderFollowerCacheV2.new(redis: redis, logger: @logger)
     @pricing_service_v3 = PricingServiceV3.new(token: ENV.fetch('API_TOKEN'), cache: cache_v3, logger: @logger)
 
@@ -52,7 +48,6 @@ class Application
     @server.mount_proc '/pricing', method(:pricing_handler)
     @server.mount_proc '/pricing/v2', method(:pricing_v2_handler)
     @server.mount_proc '/pricing/v3', method(:pricing_v3_handler)
-    @server.mount_proc '/metrics', method(:metrics_handler)
   end
 
   def setup_signals

@@ -23,20 +23,16 @@ class DistributedLock
   def with_lock(&block)
     acquire_lock!
 
-    Async do
-      barrier = Async::Barrier.new
+    Async do |task|
+      keep_alive_task = task.async { keep_lock_alive! }
 
-      # Run main work and lock extension in parallel fibers
-      barrier.async(&block)
-      barrier.async { keep_lock_alive! }
-
-      # Wait for main work to complete
-      result = barrier.wait
-      result.first
-    ensure
-      barrier.stop
-      release_lock
-    end
+      begin
+        block.call
+      ensure
+        keep_alive_task.stop
+        release_lock
+      end
+    end.wait
   end
 
   private
@@ -60,7 +56,7 @@ class DistributedLock
       raise LockError, "Lock `#{@key}` no longer in possession (time expired)" if elapsed >= LOCK_TTL
 
       # Atomically extend lock only if we still own it
-      extended = extend_lock_if_owner
+      extended = extend_lock_if_owner?
       raise LockError, "Lock `#{@key}` no longer in possession (ownership lost)" unless extended
 
       start_time = now
