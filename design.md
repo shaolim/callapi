@@ -71,7 +71,7 @@ Request → Check Cache → [Miss] → Try Acquire Lock (with auto-extend)
 | Lock mechanism       | `SETNX` with 60s TTL + auto-extend every 2s |
 | Waiting strategy     | `BRPOP` (Redis blocking pop)                |
 | Max wait time        | 55 seconds                                  |
-| Lock ownership       | UUID tracked, Lua script for safe release   |
+| Lock ownership       | UUID tracked                                |
 | Retry on API failure | None                                        |
 | Fallback             | None                                        |
 
@@ -118,7 +118,7 @@ Request → Check Cache → [Hit] → Return
 | Lock mechanism       | `SETNX` with 60s TTL + auto-extend every 2s |
 | Waiting strategy     | `BRPOP` with exponential backoff retry      |
 | Max wait time        | 15 seconds (user-friendly)                  |
-| Lock ownership       | UUID tracked, Lua script for safe release   |
+| Lock ownership       | UUID tracked                                |
 | Retry on API failure | Via circuit breaker half-open state         |
 | Fallback             | Stale cache (15 min TTL) or empty array     |
 | Circuit breaker      | Opens after 5 failures, 60s timeout         |
@@ -137,17 +137,16 @@ Request → Check Cache → [Hit] → Return
 
 ## Comparison Matrix
 
-| Feature                  | V1                          | V2                      | V3                        |
-| ------------------------ | --------------------------- | ----------------------- | ------------------------- |
-| **Lock Safety**          | Unsafe (no ownership check) | Safe (Lua script)       | Safe (Lua script)         |
-| **Wait Efficiency**      | Poor (polling)              | Good (BRPOP)            | Good (BRPOP)              |
-| **Long Operations**      | Limited (10s lock)          | Supported (auto-extend) | Supported (auto-extend)   |
-| **Thundering Herd**      | Partial (on timeout)        | Prevented               | Prevented                 |
-| **API Failure Handling** | None                        | None                    | Circuit breaker           |
-| **Graceful Degradation** | None                        | None                    | Stale cache fallback      |
-| **User Experience**      | Poor (5s wait, then fail)   | Moderate (55s wait)     | Good (15s wait, fallback) |
-| **Complexity**           | Low                         | Medium                  | High                      |
-| **Resource Usage**       | High (polling)              | Low (blocking)          | Low (blocking)            |
+| Feature                  | V1                        | V2                      | V3                        |
+| ------------------------ | ------------------------- | ----------------------- | ------------------------- |
+| **Wait Efficiency**      | Poor (polling)            | Good (BRPOP)            | Good (BRPOP)              |
+| **Long Operations**      | Limited (10s lock)        | Supported (auto-extend) | Supported (auto-extend)   |
+| **Thundering Herd**      | Partial (on timeout)      | Prevented               | Prevented                 |
+| **API Failure Handling** | None                      | None                    | Circuit breaker           |
+| **Graceful Degradation** | None                      | None                    | Stale cache fallback      |
+| **User Experience**      | Poor (5s wait, then fail) | Moderate (55s wait)     | Good (15s wait, fallback) |
+| **Complexity**           | Low                       | Medium                  | High                      |
+| **Resource Usage**       | High (polling)            | Low (blocking)          | Low (blocking)            |
 
 ---
 

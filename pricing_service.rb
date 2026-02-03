@@ -49,7 +49,7 @@ class PricingService
   def fetch_from_api(attributes)
     request = build_request(attributes)
 
-    logger.info { "API request: POST #{uri}" }
+    logger.debug { "API request: POST #{uri}" }
     start_time = Time.now
 
     response = Net::HTTP.start(uri.hostname, uri.port) do |http|
@@ -57,7 +57,7 @@ class PricingService
     end
 
     duration = ((Time.now - start_time) * 1000).round(2)
-    logger.info { "API response: #{response.code} (#{duration}ms)" }
+    logger.debug { "API response: #{response.code} (#{duration}ms)" }
 
     unless response.is_a?(Net::HTTPSuccess)
       logger.error { "API error: #{response.code} - #{response.body}" }

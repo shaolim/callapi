@@ -23,13 +23,13 @@ class RedisCache
     data = @redis.get(key)
     return nil unless data
 
-    @logger.info { "Cache hit: #{key}" }
+    @logger.debug { "Cache hit: #{key}" }
     JSON.parse(data)
   end
 
   def set(key, value, ttl: @ttl)
     @redis.set(key, value.to_json, ex: ttl)
-    @logger.info { "Cached for #{ttl}s: #{key}" }
+    @logger.debug { "Cached for #{ttl}s: #{key}" }
   end
 
   def delete(key)
@@ -72,7 +72,7 @@ class RedisCache
   end
 
   def wait_for_cache(key)
-    @logger.info { 'Waiting for another request to populate cache...' }
+    @logger.debug { 'Waiting for another request to populate cache...' }
 
     LOCK_MAX_RETRIES.times do
       sleep(LOCK_RETRY_DELAY)
